@@ -3,6 +3,19 @@ use std::cmp::{Ord, PartialOrd, Ordering};
 use std::alloc::{alloc, dealloc, Layout};
 use std::ptr::NonNull;
 
+// I wrote my own Box + vtable after spending hours battling:
+// * std::Any and it's 'static requirement
+// * * This makes the casting safer and easier, but requires 'static making it a non-starter
+// * The lack of clarity the compiler has into Box<dyn Trait> objects
+// * * Specifically, "this type object may not live long enough"
+// * Cleanly retrieving actual values and references to said values out of the erased types
+// * * The more I worked at this, the more I feel like I violated aliasing and referencing rules
+// * * This also was hairy with trying to move out of the Box<dyn Trait> objects
+
+// Overall, this is certainly not a production-ready library. I would not be surprised at all if
+// my type erasure currently allows me to violate all sorts of lifetime requirements. This is just
+// intended as a proof-of-concept of how type-erased structs can improve compile times
+
 struct Vtable {
     layout: fn() -> Layout,
     ord: fn(NonNull<u8>, NonNull<u8>) -> Ordering,
@@ -120,7 +133,6 @@ impl PartialEq for UsableKeyBox {
     }
 }
 
-// I have two layers of abstraction to ensure no inlining
 #[derive(Default)]
 struct InnerTreeMap {
     map: BTreeMap<UsableKeyBox, UsableKeyBox>,
